@@ -70,7 +70,7 @@ Hex_Software_Facial-Recognition_Employee_Attendance_System/
 │   ├── employee_3.jpg
 │   ├── employee_4.jpg
 │   ├── employee_5.jpg
-│   └── test_results.csv                            # Test output results
+│   └── test_data.xlx                            # Test output results
 │
 └── 📁 demo/                                        # Demonstration files
     ├── screenshot_1.png                            # UI screenshots
