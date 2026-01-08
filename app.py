@@ -10,11 +10,11 @@ import face_recognition
 import sqlite3
 import pickle
 import pandas as pd
+import os
 from PIL import Image
 import base64
 from pathlib import Path
-import os
-import sys
+import hashlib
 
 # ============================================================
 # PAGE CONFIGURATION
@@ -60,6 +60,15 @@ st.markdown("""
             margin: 10px 0;
         }
         
+        .danger-box {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
         .info-box {
             background-color: #d1ecf1;
             border: 1px solid #bee5eb;
@@ -67,12 +76,6 @@ st.markdown("""
             padding: 12px;
             border-radius: 4px;
             margin: 10px 0;
-        }
-        
-        .metric-label {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 5px;
         }
         
         footer {
@@ -235,6 +238,18 @@ class AttendanceDatabase:
         except Exception as e:
             st.error(f"Error generating report: {e}")
             return pd.DataFrame()
+    
+    def delete_all_data(self):
+        """Delete all employees and attendance records from the database."""
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("DELETE FROM attendance")
+            cursor.execute("DELETE FROM employees")
+            self.connection.commit()
+            return True
+        except Exception as e:
+            st.error(f"Error deleting data: {e}")
+            return False
     
     def close_connection(self):
         """Close database connection."""
@@ -417,7 +432,16 @@ if 'marked_attendance' not in st.session_state:
 # ============================================================
 
 # Title and Navigation
-st.title("👤 Facial Recognition Employee Attendance System")
+col1, col2, col3 = st.columns([3, 1, 1])
+
+with col1:
+    st.title("👤 Facial Recognition Employee Attendance System")
+
+with col3:
+    # Delete button in top right
+    if st.button("🗑️ Admin", key="admin_btn"):
+        st.session_state.show_admin = True
+
 st.markdown("---")
 
 st.sidebar.title("🔧 Navigation")
@@ -585,7 +609,7 @@ elif app_mode == "✅ Mark Attendance":
                             confidence = (1 - distance) * 100
                             
                             if name != "Unknown":
-                                col_a, col_b, col_c = st.columns([2, 1, 1])
+                                col_a, col_b = st.columns([2, 1])
                                 with col_a:
                                     st.write(f"**{name}**")
                                     st.caption(f"Confidence: {confidence:.1f}%")
@@ -626,9 +650,7 @@ elif app_mode == "📊 View Reports":
         today = datetime.now().date()
         attendance_df = db.get_attendance_report(str(today), str(today))
         
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            st.write(f"**📅 Daily Report - {today}**")
+        st.write(f"**📅 Daily Report - {today}**")
         
         if len(attendance_df) == 0:
             st.info("ℹ️ No attendance records for today")
@@ -749,6 +771,41 @@ elif app_mode == "👥 Manage Employees":
         st.subheader("🏢 Department Distribution")
         dept_counts = df_employees['Department'].value_counts()
         st.bar_chart(dept_counts)
+
+# ============================================================
+# ADMIN PANEL - DELETE DATA
+# ============================================================
+
+if st.session_state.get("show_admin", False):
+    st.markdown("---")
+    st.warning("⚠️ **ADMIN PANEL - DELETE ALL DATA**")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("### 🔐 Password Protection")
+        admin_password = st.text_input("Enter Admin Password:", type="password")
+    
+    with col2:
+        st.write("### ⚠️ Confirmation")
+        confirm = st.checkbox("I understand this will delete ALL employees and attendance records")
+    
+    if st.button("🗑️ DELETE ALL DATA", key="delete_all_btn"):
+        # Hash the password (simple security)
+        password_hash = hashlib.sha256(admin_password.encode()).hexdigest()
+        correct_hash = hashlib.sha256("HexSoftware2026".encode()).hexdigest()  # Default password
+        
+        if password_hash == correct_hash and confirm:
+            if db.delete_all_data():
+                st.success("✅ All data has been deleted successfully!")
+                st.session_state.show_admin = False
+                st.rerun()
+            else:
+                st.error("❌ Error deleting data!")
+        elif not confirm:
+            st.error("❌ Please confirm the deletion")
+        else:
+            st.error("❌ Incorrect password!")
 
 # ============================================================
 # FOOTER
